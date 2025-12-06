@@ -1,0 +1,15 @@
+*.csv
+*.zip
+etc/*
+takehome-challenge.md
+.*/
+.DS_Store
+
+# Artifacts
+artifacts/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+*.egg-info/

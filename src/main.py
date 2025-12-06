@@ -1,0 +1,1 @@
+"""CLI entrypoint for the Gerald models."""
