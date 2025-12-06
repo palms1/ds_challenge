@@ -86,21 +86,24 @@ def build_features(data_dir=None) -> pd.DataFrame:
         item_count=("order_item_id", "count"),
         seller_id=("seller_id", "first"),
     ).reset_index()
+    items_agg["multiple_items"] = (items_agg["item_count"] > 1).astype(int)
 
     # Aggregate payments
     payments_agg = payments.groupby("order_id").agg(
         payment_value=("payment_value", "sum"),
-        payment_type=("payment_type", "first"),
+        payment_installments=("payment_sequential", "min"),
     ).reset_index()
+    # Voucher flag per order
+    voucher_orders = payments[payments["payment_type"] == "voucher"]["order_id"].unique()
+    payments_agg["has_voucher"] = payments_agg["order_id"].isin(voucher_orders).astype(int)
 
     # Merge order items with products
     items_products = order_items.merge(products, on="product_id", how="left")
     products_agg = items_products.groupby("order_id").agg(
-        product_category=("product_category_name", "first"),
         weight_g=("product_weight_g", "sum"),
-        length_cm=("product_length_cm", "max"),
-        height_cm=("product_height_cm", "max"),
-        width_cm=("product_width_cm", "max"),
+        length_cm=("product_length_cm", "sum"),
+        height_cm=("product_height_cm", "sum"),
+        width_cm=("product_width_cm", "sum"),
     ).reset_index()
 
     # Build main dataframe

@@ -18,7 +18,7 @@ from sklearn.model_selection import train_test_split
 from src.config import CATEGORICAL_FEATURES, MODELS_DIR, ONTIME_FEATURES
 from src.data_preparation import build_features, check_balance
 from src.evaluate import evaluate_classifier
-from sklearn.metrics import average_precision_score, roc_auc_score
+from sklearn.metrics import roc_auc_score
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +47,7 @@ class OntimeDeliveryPipeline:
 
     def _create_preprocessor(self) -> ColumnTransformer:
         """Create preprocessing ColumnTransformer."""
-        return ColumnTransformer(
+        ct = ColumnTransformer(
             transformers=[
                 (
                     "numeric",
@@ -60,8 +60,10 @@ class OntimeDeliveryPipeline:
                     CATEGORICAL_FEATURES,
                 ),
             ],
-            remainder="drop", verbose_feature_names_out= False
+            remainder="drop", verbose_feature_names_out=False
         )
+        ct.set_output(transform="pandas")
+        return ct
 
     def fit(
         self,
@@ -88,18 +90,8 @@ class OntimeDeliveryPipeline:
         X_train_proc = self.preprocessor_.fit_transform(X_train)
         X_val_proc = self.preprocessor_.transform(X_val)
 
-        # Select metric based on class balance
-        if is_unbalanced:
-            metric = "average_precision"
-            score_fn = average_precision_score
-            metric_name = "PR-AUC"
-        else:
-            metric = "auc"
-            score_fn = roc_auc_score
-            metric_name = "ROC-AUC"
-
         logger.info(
-            f"Starting Optuna optimization with {self.max_evals} trials (metric: {metric_name})"
+            f"Starting Optuna optimization with {self.max_evals} trials (metric: ROC-AUC)"
         )
 
         early_stopping_rounds = max(1, self.n_estimators // 10)
@@ -107,7 +99,7 @@ class OntimeDeliveryPipeline:
         def objective(trial: optuna.Trial) -> float:
             params = {
                 "objective": "binary",
-                "metric": metric,
+                "metric": "auc",
                 "n_estimators": self.n_estimators,
                 "is_unbalance": is_unbalanced,
                 "random_state": self.random_state,
@@ -133,14 +125,14 @@ class OntimeDeliveryPipeline:
             )
 
             y_val_proba = model.predict_proba(X_val_proc)[:, 1]
-            return score_fn(y_val, y_val_proba)
+            return roc_auc_score(y_val, y_val_proba)
 
         study = optuna.create_study(direction="maximize")
         study.optimize(objective, n_trials=self.max_evals, show_progress_bar=True)
 
         best_params = {
             "objective": "binary",
-            "metric": metric,
+            "metric": "auc",
             "n_estimators": self.n_estimators,
             "is_unbalance": is_unbalanced,
             "random_state": self.random_state,
@@ -148,7 +140,7 @@ class OntimeDeliveryPipeline:
             **study.best_params,
         }
 
-        logger.info(f"Best {metric_name}: {study.best_value:.4f}")
+        logger.info(f"Best ROC-AUC: {study.best_value:.4f}")
         logger.info(f"Best params: {study.best_params}")
 
         # Train final model with best parameters

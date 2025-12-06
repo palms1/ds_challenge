@@ -28,9 +28,11 @@ BALANCE_THRESHOLD = 0.20
 # Features for on-time delivery model
 ONTIME_FEATURES = [
     "freight_value",
+    "item_count",
+    "multiple_items",
     "payment_value",
-    "payment_type",
-    "product_category",
+    "payment_installments",
+    "has_voucher",
     "weight_g",
     "length_cm",
     "height_cm",
@@ -47,8 +49,6 @@ ONTIME_FEATURES = [
 
 # Categorical features (for label encoding)
 CATEGORICAL_FEATURES = [
-    "payment_type",
-    "product_category",
     "customer_state",
     "seller_state",
 ]
